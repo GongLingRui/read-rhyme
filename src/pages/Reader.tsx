@@ -6,7 +6,7 @@ import NoteSidebar from "@/components/NoteSidebar";
 import AudioPlayer from "@/components/AudioPlayer";
 import { Button } from "@/components/ui/button";
 import { useBookStore } from "@/stores/bookStore";
-import { mockBooks, mockContent } from "@/data/mockData";
+import { mockBooks } from "@/data/mockData";
 
 const Reader = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,6 +16,7 @@ const Reader = () => {
   const uploadedBook = useBookStore((s) => s.getBook(bookId ?? ""));
   const mockBook = mockBooks.find((b) => b.id === bookId);
 
+  const resolvedId = bookId ?? "unknown";
   const title = uploadedBook?.title ?? mockBook?.title ?? "未知书籍";
   const author = uploadedBook?.author ?? mockBook?.author ?? "";
   const sections = uploadedBook?.sections ?? null;
@@ -55,10 +56,15 @@ const Reader = () => {
           <ReaderContent
             title={title}
             author={author}
+            bookId={resolvedId}
             sections={sections}
           />
         </div>
-        <NoteSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <NoteSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          bookId={resolvedId}
+        />
       </div>
 
       <AudioPlayer />
