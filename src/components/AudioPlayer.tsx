@@ -68,6 +68,8 @@ const AudioPlayer = () => {
     let ws: any = null;
 
     const initWaveSurfer = async () => {
+      // Wait a tick to ensure DOM is ready
+      await new Promise((r) => setTimeout(r, 50));
       if (!waveContainerRef.current) return;
       const WaveSurfer = (await import("wavesurfer.js")).default;
 

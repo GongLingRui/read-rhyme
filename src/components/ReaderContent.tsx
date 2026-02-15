@@ -44,7 +44,8 @@ const ReaderContent = ({ title, author, bookId, sections }: ReaderContentProps) 
   const blockRefs = useRef<Map<number, HTMLElement>>(new Map());
 
   const addHighlight = useHighlightStore((s) => s.addHighlight);
-  const bookHighlights = useHighlightStore((s) => s.getBookHighlights(bookId));
+  const allHighlights = useHighlightStore((s) => s.highlights);
+  const bookHighlights = allHighlights.filter((h) => h.bookId === bookId);
   const { activeBlockIndex, seekToBlock, isPlaying, setParagraphTimeMap } = useAudioStore();
 
   const blocks = sections ?? mockContent.split("\n\n").filter(Boolean);
