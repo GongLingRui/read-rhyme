@@ -1,18 +1,27 @@
 import { useState } from "react";
 import { ArrowLeft, StickyNote } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import ReaderContent from "@/components/ReaderContent";
 import NoteSidebar from "@/components/NoteSidebar";
 import AudioPlayer from "@/components/AudioPlayer";
 import { Button } from "@/components/ui/button";
+import { useBookStore } from "@/stores/bookStore";
+import { mockBooks, mockContent } from "@/data/mockData";
 
 const Reader = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const { bookId } = useParams<{ bookId: string }>();
+
+  const uploadedBook = useBookStore((s) => s.getBook(bookId ?? ""));
+  const mockBook = mockBooks.find((b) => b.id === bookId);
+
+  const title = uploadedBook?.title ?? mockBook?.title ?? "未知书籍";
+  const author = uploadedBook?.author ?? mockBook?.author ?? "";
+  const sections = uploadedBook?.sections ?? null;
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      {/* Top bar */}
       <header className="flex items-center justify-between border-b px-4 py-2">
         <Button
           variant="ghost"
@@ -25,7 +34,7 @@ const Reader = () => {
         </Button>
 
         <span className="font-reading text-sm font-medium text-foreground">
-          人工智能简史
+          {title}
         </span>
 
         <Button
@@ -38,18 +47,20 @@ const Reader = () => {
         </Button>
       </header>
 
-      {/* Content area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Main reading area */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin" style={{ backgroundColor: "hsl(var(--reading-surface))" }}>
-          <ReaderContent />
+        <div
+          className="flex-1 overflow-y-auto scrollbar-thin"
+          style={{ backgroundColor: "hsl(var(--reading-surface))" }}
+        >
+          <ReaderContent
+            title={title}
+            author={author}
+            sections={sections}
+          />
         </div>
-
-        {/* Sidebar */}
         <NoteSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
 
-      {/* Audio player */}
       <AudioPlayer />
     </div>
   );

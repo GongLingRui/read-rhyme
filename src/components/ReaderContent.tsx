@@ -3,7 +3,13 @@ import { Play } from "lucide-react";
 import HighlightMenu from "./HighlightMenu";
 import { mockContent } from "@/data/mockData";
 
-const ReaderContent = () => {
+interface ReaderContentProps {
+  title: string;
+  author: string;
+  sections?: string[] | null;
+}
+
+const ReaderContent = ({ title, author, sections }: ReaderContentProps) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [activeBlock, setActiveBlock] = useState<number | null>(null);
 
@@ -30,8 +36,8 @@ const ReaderContent = () => {
     }, 100);
   }, []);
 
-  // Parse markdown into blocks
-  const blocks = mockContent.split("\n\n").filter(Boolean);
+  // Use uploaded sections or fallback to mock content
+  const blocks = sections ?? mockContent.split("\n\n").filter(Boolean);
 
   const renderBlock = (block: string, index: number) => {
     const isActive = activeBlock === index;
@@ -55,6 +61,17 @@ const ReaderContent = () => {
         >
           {block.replace("### ", "")}
         </h3>
+      );
+    }
+
+    if (block.startsWith("# ")) {
+      return (
+        <h1
+          key={index}
+          className="mt-10 mb-6 text-2xl font-bold font-reading text-foreground"
+        >
+          {block.replace("# ", "")}
+        </h1>
       );
     }
 
@@ -82,20 +99,19 @@ const ReaderContent = () => {
       onMouseUp={handleTextSelect}
       onClick={handleClickOutside}
     >
-      {/* Book title header */}
       <div className="mb-8 border-b pb-6">
         <h1 className="font-reading text-2xl font-bold text-foreground">
-          人工智能简史
+          {title}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">尼克 · 著</p>
+        {author && (
+          <p className="mt-1 text-sm text-muted-foreground">{author} · 著</p>
+        )}
       </div>
 
-      {/* Content blocks */}
       <div className="select-text">
         {blocks.map((block, index) => renderBlock(block, index))}
       </div>
 
-      {/* Floating highlight menu */}
       {menuPosition && (
         <HighlightMenu
           position={menuPosition}
