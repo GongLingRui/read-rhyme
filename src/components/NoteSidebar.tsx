@@ -1,16 +1,27 @@
 import { useState } from "react";
-import { List, StickyNote, X } from "lucide-react";
-import { mockChapters, mockHighlights } from "@/data/mockData";
+import { List, StickyNote, X, Trash2 } from "lucide-react";
+import { mockChapters } from "@/data/mockData";
+import { useHighlightStore, type SavedHighlight } from "@/stores/highlightStore";
+
+const HIGHLIGHT_DOT: Record<string, string> = {
+  yellow: "bg-yellow-400",
+  blue: "bg-blue-400",
+  green: "bg-green-400",
+  pink: "bg-pink-400",
+};
 
 interface NoteSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  bookId: string;
 }
 
 type Tab = "toc" | "notes";
 
-const NoteSidebar = ({ isOpen, onClose }: NoteSidebarProps) => {
+const NoteSidebar = ({ isOpen, onClose, bookId }: NoteSidebarProps) => {
   const [activeTab, setActiveTab] = useState<Tab>("toc");
+  const bookHighlights = useHighlightStore((s) => s.getBookHighlights(bookId));
+  const removeHighlight = useHighlightStore((s) => s.removeHighlight);
 
   if (!isOpen) return null;
 
@@ -40,6 +51,11 @@ const NoteSidebar = ({ isOpen, onClose }: NoteSidebarProps) => {
           >
             <StickyNote className="h-4 w-4" />
             笔记
+            {bookHighlights.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs text-primary">
+                {bookHighlights.length}
+              </span>
+            )}
           </button>
         </div>
         <button
@@ -68,35 +84,69 @@ const NoteSidebar = ({ isOpen, onClose }: NoteSidebarProps) => {
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
-            {mockHighlights.map((highlight) => (
-              <div
-                key={highlight.id}
-                className="rounded-lg border p-3 transition-colors hover:bg-accent/50"
-              >
-                <p className="text-sm leading-relaxed text-foreground font-reading reading-highlight inline">
-                  {highlight.text}
+          <div className="space-y-3">
+            {bookHighlights.length === 0 ? (
+              <div className="py-8 text-center">
+                <StickyNote className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  还没有笔记，选中文字开始划线吧
                 </p>
-                {highlight.note && (
-                  <p className="mt-2 text-xs text-primary italic">
-                    💡 {highlight.note}
-                  </p>
-                )}
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {highlight.chapter}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {highlight.createdAt}
-                  </span>
-                </div>
               </div>
-            ))}
+            ) : (
+              bookHighlights.map((h) => (
+                <HighlightCard
+                  key={h.id}
+                  highlight={h}
+                  onDelete={() => removeHighlight(h.id)}
+                />
+              ))
+            )}
           </div>
         )}
       </div>
     </div>
   );
 };
+
+function HighlightCard({
+  highlight,
+  onDelete,
+}: {
+  highlight: SavedHighlight;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="group rounded-lg border p-3 transition-colors hover:bg-accent/50">
+      <div className="flex items-start gap-2">
+        <div
+          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+            HIGHLIGHT_DOT[highlight.color] ?? "bg-yellow-400"
+          }`}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm leading-relaxed text-foreground font-reading line-clamp-3">
+            {highlight.text}
+          </p>
+          {highlight.note && (
+            <p className="mt-1.5 text-xs text-primary italic">
+              💡 {highlight.note}
+            </p>
+          )}
+          <div className="mt-1.5 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {highlight.createdAt}
+            </span>
+            <button
+              onClick={onDelete}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default NoteSidebar;
