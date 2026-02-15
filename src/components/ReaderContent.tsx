@@ -14,7 +14,7 @@ interface ReaderContentProps {
   title: string;
   author: string;
   bookId: string;
-  sections?: string[] | null;
+  content: string;
 }
 
 const HIGHLIGHT_BG: Record<HighlightColor, string> = {
@@ -24,7 +24,7 @@ const HIGHLIGHT_BG: Record<HighlightColor, string> = {
   pink: "bg-pink-200/60",
 };
 
-const ReaderContent = ({ title, author, bookId, sections }: ReaderContentProps) => {
+const ReaderContent = ({ title, author, bookId, content }: ReaderContentProps) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{
     text: string;
@@ -48,7 +48,7 @@ const ReaderContent = ({ title, author, bookId, sections }: ReaderContentProps) 
   const bookHighlights = allHighlights.filter((h) => h.bookId === bookId);
   const { activeBlockIndex, seekToBlock, isPlaying, setParagraphTimeMap } = useAudioStore();
 
-  const blocks = sections ?? mockContent.split("\n\n").filter(Boolean);
+  const blocks = content.split("\n\n").filter(Boolean);
 
   // Initialize paragraph time map
   useEffect(() => {

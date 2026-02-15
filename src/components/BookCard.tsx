@@ -1,4 +1,4 @@
-import { type Book } from "@/data/mockData";
+import type { Book } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { FileText } from "lucide-react";
 
@@ -9,15 +9,19 @@ interface BookCardProps {
 const BookCard = ({ book }: BookCardProps) => {
   const navigate = useNavigate();
 
+  const coverUrl = book.cover || book.coverUrl;
+  const author = book.author || "未知作者";
+  const progress = Math.round(book.progress * 100);
+
   return (
     <div
       onClick={() => navigate(`/reader/${book.id}`)}
       className="group cursor-pointer animate-fade-in"
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-lg shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-1">
-        {book.cover ? (
+        {coverUrl ? (
           <img
-            src={book.cover}
+            src={coverUrl}
             alt={book.title}
             className="h-full w-full object-cover"
           />
@@ -33,7 +37,7 @@ const BookCard = ({ book }: BookCardProps) => {
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted/80">
           <div
             className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${book.progress}%` }}
+            style={{ width: `${progress}%` }}
           />
         </div>
       </div>
@@ -41,8 +45,8 @@ const BookCard = ({ book }: BookCardProps) => {
         <h3 className="font-reading text-sm font-medium leading-tight text-foreground line-clamp-2">
           {book.title}
         </h3>
-        <p className="text-xs text-muted-foreground">{book.author}</p>
-        <p className="text-xs text-muted-foreground">{book.progress}%</p>
+        <p className="text-xs text-muted-foreground">{author}</p>
+        <p className="text-xs text-muted-foreground">{progress}%</p>
       </div>
     </div>
   );

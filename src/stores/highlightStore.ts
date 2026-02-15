@@ -1,77 +1,139 @@
+/**
+ * Highlight Store with API integration
+ */
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { highlightsApi, type Highlight as ApiHighlight } from "@/services";
 
 export type HighlightColor = "yellow" | "blue" | "green" | "pink";
 
 export interface SavedHighlight {
   id: string;
+  userId: string;
   bookId: string;
+  chunkId?: string;
   text: string;
-  blockIndex: number;
+  color: HighlightColor;
   startOffset: number;
   endOffset: number;
-  color: HighlightColor;
-  note?: string;
+  chapter?: string;
+  note?: {
+    id: string;
+    highlightId: string;
+    content: string;
+    createdAt: string;
+    updatedAt: string;
+  };
   createdAt: string;
 }
 
 interface HighlightStore {
   highlights: SavedHighlight[];
-  addHighlight: (h: Omit<SavedHighlight, "id" | "createdAt">) => SavedHighlight;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  fetchHighlights: (bookId: string) => Promise<void>;
+  addHighlight: (h: Omit<SavedHighlight, "id" | "userId" | "createdAt">) => Promise<void>;
   updateNote: (id: string, note: string) => void;
   removeHighlight: (id: string) => void;
   getBookHighlights: (bookId: string) => SavedHighlight[];
 }
 
-export const useHighlightStore = create<HighlightStore>((set, get) => ({
-  highlights: [],
+const mapApiHighlight = (apiHighlight: ApiHighlight): SavedHighlight => ({
+  id: apiHighlight.id,
+  userId: apiHighlight.user_id,
+  bookId: apiHighlight.book_id,
+  chunkId: apiHighlight.chunk_id,
+  text: apiHighlight.text,
+  color: apiHighlight.color as HighlightColor,
+  startOffset: apiHighlight.start_offset,
+  endOffset: apiHighlight.end_offset,
+  chapter: apiHighlight.chapter,
+  note: apiHighlight.note,
+  createdAt: apiHighlight.created_at,
+});
 
-  addHighlight: (data) => {
-    const highlight: SavedHighlight = {
-      ...data,
-      id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      createdAt: new Date().toISOString().slice(0, 10),
-    };
-    set((s) => ({ highlights: [...s.highlights, highlight] }));
+export const useHighlightStore = create<HighlightStore>()(
+  persist(
+    (set, get) => ({
+      highlights: [],
+      isLoading: false,
+      error: null,
 
-    // Placeholder: sync to backend
-    syncHighlightToApi("create", highlight);
+      fetchHighlights: async (bookId) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await highlightsApi.list(bookId);
+          if (response.success && response.data) {
+            const highlights = response.data.map(mapApiHighlight);
+            set({ highlights, isLoading: false });
+          }
+        } catch (error: any) {
+          set({
+            error: error.message || "获取高亮失败",
+            isLoading: false,
+          });
+        }
+      },
 
-    return highlight;
-  },
+      addHighlight: async (data) => {
+        try {
+          const response = await highlightsApi.create(data.bookId, {
+            text: data.text,
+            color: data.color,
+            start_offset: data.startOffset,
+            end_offset: data.endOffset,
+            chapter: data.chapter,
+            chunk_id: data.chunkId,
+            note: data.note?.content,
+          });
+          if (response.success && response.data) {
+            const newHighlight = mapApiHighlight(response.data);
+            set((state) => ({ highlights: [...state.highlights, newHighlight] }));
+          }
+        } catch (error: any) {
+          set({ error: error.message || "添加高亮失败" });
+          throw error;
+        }
+      },
 
-  updateNote: (id, note) => {
-    set((s) => ({
-      highlights: s.highlights.map((h) =>
-        h.id === id ? { ...h, note } : h
-      ),
-    }));
-    const h = get().highlights.find((h) => h.id === id);
-    if (h) syncHighlightToApi("update", h);
-  },
+      updateNote: async (id, note) => {
+        try {
+          const response = await highlightsApi.setNote(id, note);
+          if (response.success && response.data) {
+            set((state) => ({
+              highlights: state.highlights.map((h) =>
+                h.id === id ? { ...h, note: response.data } : h
+              ),
+            }));
+          }
+        } catch (error: any) {
+          set({ error: error.message || "更新笔记失败" });
+          throw error;
+        }
+      },
 
-  removeHighlight: (id) => {
-    const h = get().highlights.find((h) => h.id === id);
-    set((s) => ({
-      highlights: s.highlights.filter((h) => h.id !== id),
-    }));
-    if (h) syncHighlightToApi("delete", h);
-  },
+      removeHighlight: async (id) => {
+        try {
+          await highlightsApi.delete(id);
+          set((state) => ({
+            highlights: state.highlights.filter((h) => h.id !== id),
+          }));
+        } catch (error: any) {
+          set({ error: error.message || "删除高亮失败" });
+          throw error;
+        }
+      },
 
-  getBookHighlights: (bookId) =>
-    get().highlights.filter((h) => h.bookId === bookId),
-}));
-
-// ── API interface placeholder ──
-// Replace with real fetch calls when backend is ready
-async function syncHighlightToApi(
-  action: "create" | "update" | "delete",
-  highlight: SavedHighlight
-) {
-  console.log(`[Highlight API] ${action}:`, highlight.id, highlight.text.slice(0, 30));
-  // Example future implementation:
-  // await fetch('/api/highlights', {
-  //   method: action === 'create' ? 'POST' : action === 'update' ? 'PUT' : 'DELETE',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(highlight),
-  // });
-}
+      getBookHighlights: (bookId) =>
+        get().highlights.filter((h) => h.bookId === bookId),
+    }),
+    {
+      name: "highlight-storage",
+      partialize: (state) => ({
+        highlights: state.highlights,
+      }),
+    }
+  )
+);

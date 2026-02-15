@@ -5,8 +5,6 @@ import {
   X,
   CheckCircle2,
   Loader2,
-  AudioLines,
-  FileSearch,
   AlertCircle,
 } from "lucide-react";
 import {
@@ -17,27 +15,27 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { simulateUpload, type UploadStep } from "@/services/uploadApi";
-import { useBookStore, type UploadedBook } from "@/stores/bookStore";
+import { useBookStore } from "@/stores/bookStore";
 import { useNavigate } from "react-router-dom";
+import type { Book } from "@/types";
 
 interface UploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+type UploadStep = "uploading" | "complete" | "error";
+
 const ACCEPTED_TYPES = [".pdf", ".epub", ".txt"];
-const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_SIZE = 100 * 1024 * 1024; // 100MB
 
 const stepConfig: Record<
   UploadStep,
   { label: string; icon: React.ElementType; progress: number }
 > = {
-  uploading: { label: "正在上传文件…", icon: Upload, progress: 15 },
-  parsing: { label: "正在解析文本内容…", icon: FileSearch, progress: 45 },
-  generating_audio: { label: "正在生成音频…", icon: AudioLines, progress: 80 },
-  complete: { label: "处理完成！", icon: CheckCircle2, progress: 100 },
-  error: { label: "处理失败", icon: AlertCircle, progress: 0 },
+  uploading: { label: "正在上传文件…", icon: Upload, progress: 50 },
+  complete: { label: "上传完成！", icon: CheckCircle2, progress: 100 },
+  error: { label: "上传失败", icon: AlertCircle, progress: 0 },
 };
 
 const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
@@ -46,8 +44,7 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
   const [step, setStep] = useState<UploadStep | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const addBook = useBookStore((s) => s.addBook);
-  const uploadedBooks = useBookStore((s) => s.uploadedBooks);
+  const uploadBook = useBookStore((s) => s.uploadBook);
   const navigate = useNavigate();
 
   const reset = () => {
@@ -62,7 +59,7 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
       return "不支持的文件格式，请上传 PDF、EPUB 或 TXT 文件";
     }
     if (file.size > MAX_SIZE) {
-      return "文件大小不能超过 20MB";
+      return "文件大小不能超过 100MB";
     }
     return null;
   };
@@ -89,23 +86,18 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
     setError(null);
 
     try {
-      const response = await simulateUpload(selectedFile, setStep);
+      setStep("uploading");
 
-      const newBook: UploadedBook = {
-        id: `uploaded-${Date.now()}`,
-        title: response.metadata.title,
-        author: response.metadata.author,
-        cover: "",
-        progress: 0,
-        totalChapters: response.sections.filter((s) =>
-          s.startsWith("## ")
-        ).length || 1,
-        currentChapter: 1,
-        sections: response.sections,
-        audioUrl: response.audio_url,
-      };
+      // Extract title from filename
+      const title = selectedFile.name.replace(/\.(pdf|epub|txt)$/i, "");
 
-      addBook(newBook);
+      // Upload to backend
+      const newBook = await uploadBook(selectedFile, {
+        title,
+        author: "未知作者",
+      });
+
+      setStep("complete");
 
       // Auto-navigate after a short delay
       setTimeout(() => {
@@ -113,9 +105,9 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
         reset();
         navigate(`/reader/${newBook.id}`);
       }, 1000);
-    } catch {
+    } catch (err: any) {
       setStep("error");
-      setError("上传处理失败，请重试");
+      setError(err.message || "上传处理失败，请重试");
     }
   };
 
@@ -201,7 +193,7 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
                 拖放文件到此处，或点击选择
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                支持 PDF、EPUB、TXT 格式，最大 20MB
+                支持 PDF、EPUB、TXT 格式，最大 100MB
               </p>
               <input
                 ref={inputRef}
