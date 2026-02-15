@@ -20,7 +20,7 @@ type Tab = "toc" | "notes";
 
 const NoteSidebar = ({ isOpen, onClose, bookId }: NoteSidebarProps) => {
   const [activeTab, setActiveTab] = useState<Tab>("toc");
-  const bookHighlights = useHighlightStore((s) => s.getBookHighlights(bookId));
+  const bookHighlights = useHighlightStore((s) => s.highlights).filter((h) => h.bookId === bookId);
   const removeHighlight = useHighlightStore((s) => s.removeHighlight);
 
   if (!isOpen) return null;
