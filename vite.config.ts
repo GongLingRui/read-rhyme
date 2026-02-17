@@ -13,9 +13,33 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: process.env.VITE_API_BASE_URL || "http://localhost:8000/api",
+        target: process.env.VITE_API_BASE_URL?.replace("/api", "") || "http://localhost:8000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, "/api"),
+        rewrite: (path) => path, // Keep /api prefix
+        preserveHeaderKeyCase: true,
+        // Important: Don't parse body for FormData uploads
+        // Allow multipart/form-data to pass through
+        configure: (proxy, opts) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            // Log request
+            console.log('[Proxy] Request:', req.method, req.url);
+            console.log('[Proxy] Content-Type:', req.headers['content-type']);
+            if (req.headers['content-length']) {
+              console.log('[Proxy] Body length:', req.headers['content-length']);
+            }
+
+            // Forward Authorization header
+            if (req.headers.authorization) {
+              proxyReq.setHeader('Authorization', req.headers.authorization);
+            }
+          });
+          proxy.on('proxyRes', (proxyReq, req, res) => {
+            console.log('[Proxy] Response:', proxyReq.statusCode, req.url);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('[Proxy] Error:', err.message);
+          });
+        },
       },
       "/static": {
         target: process.env.VITE_API_BASE_URL?.replace("/api", "") || "http://localhost:8000",

@@ -97,4 +97,43 @@ export const voicesApi = {
   }): Promise<ApiResponse<{ preview_url: string; voice_id: string }>> => {
     return apiClient.post("/voices/design", data);
   },
+
+  // Voice Consistency Check
+  checkConsistency: async (projectId: string): Promise<
+    ApiResponse<{
+      is_consistent: boolean;
+      issues: Array<{
+        speaker: string;
+        issue_type: string;
+        description: string;
+        affected_entries: number;
+      }>;
+      speakers_summary: Record<string, number>;
+    }>
+  > => {
+    return apiClient.get(`/projects/${projectId}/voice-consistency/check`);
+  },
+
+  // Auto-fix consistency issues
+  autoFixConsistency: async (projectId: string): Promise<
+    ApiResponse<{
+      fixed_count: number;
+      issues_fixed: string[];
+      remaining_issues: string[];
+    }>
+  > => {
+    return apiClient.post(`/projects/${projectId}/voice-consistency/auto-fix`);
+  },
+
+  // Get voice suggestions for a speaker
+  getSpeakerSuggestion: async (projectId: string, speaker: string): Promise<
+    ApiResponse<{
+      speaker: string;
+      suggested_voice: string;
+      suggested_config: VoiceConfig;
+      reason: string;
+    }>
+  > => {
+    return apiClient.get(`/projects/${projectId}/voice-consistency/suggest/${speaker}`);
+  },
 };

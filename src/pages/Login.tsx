@@ -12,8 +12,8 @@ export default function Login() {
   const { login, register, isLoading, error, clearError } = useAuthStore();
 
   const [loginData, setLoginData] = useState({
-    email: "test@example.com",
-    password: "password123",
+    email: "",
+    password: "",
   });
 
   const [registerData, setRegisterData] = useState({

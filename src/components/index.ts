@@ -10,3 +10,6 @@ export { AudioProgress } from './AudioProgress';
 
 // Emotion components
 export { EmotionPresetSelector } from './EmotionPresetSelector';
+
+// Audio components
+export { default as AudioWaveform } from './AudioWaveform';

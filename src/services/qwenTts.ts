@@ -13,7 +13,7 @@ export interface SpeechGenerationRequest {
 }
 
 export interface SpeechGenerationResponse {
-  audio_url?: string;
+  audio_url: string;
   sample_rate: number;
   duration: number;
   format: string;
@@ -58,12 +58,13 @@ export interface TTSInfo {
 
 export const qwenTtsApi = {
   /**
-   * Generate speech from text using Qwen3-TTS
+   * Generate speech from text using Edge TTS
    */
   generateSpeech: async (
     request: SpeechGenerationRequest
-  ): Promise<ApiResponse<SpeechGenerationResponse>> => {
-    return apiClient.post("/qwen-tts/generate", request);
+  ): Promise<SpeechGenerationResponse> => {
+    // apiClient的响应拦截器直接返回response.data
+    return apiClient.post("/qwen-tts/generate", request) as Promise<SpeechGenerationResponse>;
   },
 
   /**

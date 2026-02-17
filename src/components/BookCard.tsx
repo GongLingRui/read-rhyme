@@ -1,6 +1,19 @@
-import type { Book } from "@/types";
+import type { Book } from "@/stores/bookStore";
 import { useNavigate } from "react-router-dom";
-import { FileText } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
+import { useBookStore } from "@/stores/bookStore";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface BookCardProps {
   book: Book;
@@ -8,14 +21,32 @@ interface BookCardProps {
 
 const BookCard = ({ book }: BookCardProps) => {
   const navigate = useNavigate();
+  const deleteBook = useBookStore((s) => s.deleteBook);
+  const isLoading = useBookStore((s) => s.isLoading);
 
-  const coverUrl = book.cover || book.coverUrl;
+  const coverUrl = book.coverUrl;
   const author = book.author || "未知作者";
   const progress = Math.round(book.progress * 100);
 
+  const handleDelete = async () => {
+    try {
+      await deleteBook(book.id);
+    } catch (error) {
+      console.error("Failed to delete book:", error);
+    }
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if the click was on the delete button
+    if ((e.target as HTMLElement).closest("[data-delete-button]")) {
+      return;
+    }
+    navigate(`/reader/${book.id}`);
+  };
+
   return (
     <div
-      onClick={() => navigate(`/reader/${book.id}`)}
+      onClick={handleCardClick}
       className="group cursor-pointer animate-fade-in"
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-lg shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-1">
@@ -39,6 +70,36 @@ const BookCard = ({ book }: BookCardProps) => {
             className="h-full bg-primary transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
+        </div>
+        {/* Delete button - shows on hover */}
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8 shadow-lg"
+                data-delete-button
+                disabled={isLoading}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>删除书籍</AlertDialogTitle>
+                <AlertDialogDescription>
+                  确定要删除《{book.title}》吗？此操作无法撤销。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>取消</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete}>
+                  删除
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
       <div className="mt-3 space-y-0.5">

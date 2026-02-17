@@ -2,7 +2,8 @@
  * Project Store with API integration
  */
 import { create } from "zustand";
-import { projectsApi, scriptsApi, audioApi, voicesApi, type Project as ApiProject, type ScriptEntry, type Chunk } from "@/services";
+import { projectsApi, scriptsApi, audioApi, voicesApi, websocketService, type Project as ApiProject, type ScriptEntry, type Chunk } from "@/services";
+import { useLogsStore } from "./logsStore";
 
 export interface Project {
   id: string;
@@ -26,6 +27,8 @@ export interface Project {
     completedChunks: number;
     percentage: number;
   };
+  // Include all fields from API
+  audio_path?: string;
 }
 
 interface ProjectStore {
@@ -39,6 +42,7 @@ interface ProjectStore {
     completed: number;
     percentage: number;
   } | null;
+  wsConnected: boolean;
   error: string | null;
 
   // Actions
@@ -52,6 +56,10 @@ interface ProjectStore {
   generateAudio: (chunkIds?: string[]) => Promise<void>;
   mergeAudio: () => Promise<void>;
   reset: () => void;
+
+  // WebSocket actions
+  connectWebSocket: (projectId: string) => void;
+  disconnectWebSocket: () => void;
 }
 
 const mapApiProject = (apiProject: ApiProject): Project => ({
@@ -63,6 +71,7 @@ const mapApiProject = (apiProject: ApiProject): Project => ({
   status: apiProject.status,
   config: apiProject.config,
   audioPath: apiProject.audio_path,
+  audio_path: apiProject.audio_path,
   duration: apiProject.duration,
   createdAt: apiProject.created_at,
   updatedAt: apiProject.updated_at,
@@ -82,10 +91,80 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   voiceConfigs: null,
   isGenerating: false,
   progress: null,
+  wsConnected: false,
   error: null,
 
   setCurrentProject: (project) => {
     set({ currentProject: project });
+    // Connect to WebSocket when project is set
+    if (project) {
+      get().connectWebSocket(project.id);
+    }
+  },
+
+  connectWebSocket: (projectId: string) => {
+    const ws = websocketService.connect(projectId);
+    const addLog = useLogsStore.getState().addLog;
+
+    // Register progress callback
+    ws.onProgress((message) => {
+      // Log all WebSocket messages
+      switch (message.type) {
+        case 'connected':
+          set({ wsConnected: true });
+          addLog('info', `WebSocket已连接: ${message.message || '项目 ' + projectId}`, 'WebSocket');
+          break;
+        case 'progress':
+          if (message.data) {
+            set({
+              progress: {
+                total: message.data.total || 0,
+                completed: message.data.current || 0,
+                percentage: message.data.percentage || 0,
+              },
+            });
+            addLog('info', `进度: ${message.data.current}/${message.data.total} (${message.data.percentage?.toFixed(0)}%)`, 'TTS');
+          }
+          break;
+        case 'chunk_completed':
+          // Refresh chunks when a chunk is completed
+          addLog('success', `音频块完成: ${message.data?.chunk_id}`, 'TTS');
+          get().fetchChunks();
+          break;
+        case 'generation_complete':
+          set({
+            isGenerating: false,
+            progress: {
+              total: message.data?.total_chunks || 0,
+              completed: message.data?.succeeded || 0,
+              percentage: 100,
+            },
+          });
+          addLog('success', `生成完成: ${message.data?.succeeded}/${message.data?.total_chunks} 成功 (${message.data?.success_rate?.toFixed(0)}%)`, 'TTS');
+          if (message.data?.failed > 0) {
+            addLog('warning', `${message.data.failed} 个音频块失败`, 'TTS');
+          }
+          get().fetchChunks();
+          break;
+        case 'error':
+          set({
+            error: message.data?.error_message || '生成错误',
+            isGenerating: false,
+          });
+          addLog('error', message.data?.error_message || '生成错误', 'TTS');
+          break;
+        default:
+          addLog('debug', `收到消息: ${message.type}`, 'WebSocket');
+      }
+    });
+  },
+
+  disconnectWebSocket: () => {
+    const { currentProject } = get();
+    if (currentProject) {
+      websocketService.disconnect(currentProject.id);
+      set({ wsConnected: false });
+    }
   },
 
   fetchProject: async (projectId) => {
@@ -205,17 +284,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   mergeAudio: async () => {
-    const { currentProject } = get();
+    const { currentProject, fetchProject } = get();
     if (!currentProject) return;
 
     try {
       await audioApi.mergeAudio(currentProject.id);
+      // 合并后刷新项目信息，获取更新后的 audio_path 和 status
+      await fetchProject(currentProject.id);
     } catch (error: any) {
       set({ error: error.message || "音频合并失败" });
     }
   },
 
   reset: () => {
+    // Disconnect WebSocket before resetting
+    get().disconnectWebSocket();
+
     set({
       currentProject: null,
       script: null,
@@ -223,6 +307,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       voiceConfigs: null,
       isGenerating: false,
       progress: null,
+      wsConnected: false,
       error: null,
     });
   },

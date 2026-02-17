@@ -31,17 +31,18 @@ const MAX_SIZE = 100 * 1024 * 1024; // 100MB
 
 const stepConfig: Record<
   UploadStep,
-  { label: string; icon: React.ElementType; progress: number }
+  { label: string; icon: React.ElementType }
 > = {
-  uploading: { label: "正在上传文件…", icon: Upload, progress: 50 },
-  complete: { label: "上传完成！", icon: CheckCircle2, progress: 100 },
-  error: { label: "上传失败", icon: AlertCircle, progress: 0 },
+  uploading: { label: "正在上传文件…", icon: Upload },
+  complete: { label: "上传完成！", icon: CheckCircle2 },
+  error: { label: "上传失败", icon: AlertCircle },
 };
 
 const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [step, setStep] = useState<UploadStep | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadBook = useBookStore((s) => s.uploadBook);
@@ -50,6 +51,7 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
   const reset = () => {
     setSelectedFile(null);
     setStep(null);
+    setUploadProgress(0);
     setError(null);
   };
 
@@ -87,17 +89,25 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
 
     try {
       setStep("uploading");
+      setUploadProgress(0);
 
       // Extract title from filename
       const title = selectedFile.name.replace(/\.(pdf|epub|txt)$/i, "");
 
-      // Upload to backend
-      const newBook = await uploadBook(selectedFile, {
-        title,
-        author: "未知作者",
-      });
+      // Upload to backend with progress callback
+      const newBook = await uploadBook(
+        selectedFile,
+        {
+          title,
+          author: "未知作者",
+        },
+        (progress) => {
+          setUploadProgress(progress);
+        }
+      );
 
       setStep("complete");
+      setUploadProgress(100);
 
       // Auto-navigate after a short delay
       setTimeout(() => {
@@ -160,9 +170,14 @@ const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
                   {selectedFile.name}
                 </p>
               )}
+              {step === "uploading" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {uploadProgress}%
+                </p>
+              )}
             </div>
             <Progress
-              value={currentStep?.progress ?? 0}
+              value={step === "complete" ? 100 : uploadProgress}
               className="h-1.5 w-full max-w-xs"
             />
             {step === "complete" && (

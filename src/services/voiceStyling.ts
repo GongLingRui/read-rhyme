@@ -90,6 +90,18 @@ export const voiceStylingApi = {
   },
 
   // 生成带情感的语音
+  generateStyled: async (request: {
+    text: string;
+    voice: string;
+    emotion: string;
+    intensity: number;
+    speed: number;
+    pitch: number;
+  }): Promise<ApiResponse<{ audio_url: string; duration: number }>> => {
+    return apiClient.post("/voice-styling/generate-styled", request);
+  },
+
+  // 生成带情感的语音（完整版）
   generateStyledAudio: async (request: VoiceStylingRequest): Promise<
     ApiResponse<{
       audio_url: string;

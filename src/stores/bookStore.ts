@@ -35,8 +35,13 @@ interface BookStore {
   setCurrentBook: (book: Book | null) => void;
   addBook: (book: Book) => void;
   removeBook: (bookId: string) => void;
+  deleteBook: (bookId: string) => Promise<void>;
   updateBookProgress: (bookId: string, progress: number) => void;
-  uploadBook: (file: File, metadata?: { title?: string; author?: string }) => Promise<Book>;
+  uploadBook: (
+    file: File,
+    metadata?: { title?: string; author?: string },
+    onProgress?: (progress: number) => void
+  ) => Promise<Book>;
 }
 
 const mapApiBook = (apiBook: ApiBook): Book => ({
@@ -84,12 +89,16 @@ export const useBookStore = create<BookStore>()(
           if (response.success && response.data) {
             const book = mapApiBook(response.data);
             set({ currentBook: book, isLoading: false });
+          } else {
+            set({ currentBook: null, isLoading: false, error: "书籍不存在" });
           }
         } catch (error: any) {
           set({
+            currentBook: null,
             error: error.message || "获取书籍详情失败",
             isLoading: false,
           });
+          throw error;
         }
       },
 
@@ -109,6 +118,24 @@ export const useBookStore = create<BookStore>()(
         }));
       },
 
+      deleteBook: async (bookId) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await booksApi.delete(bookId);
+          if (response.success) {
+            get().removeBook(bookId);
+          }
+        } catch (error: any) {
+          set({
+            error: error.message || "删除书籍失败",
+            isLoading: false,
+          });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
       updateBookProgress: (bookId, progress) => {
         set((state) => ({
           books: state.books.map((b) =>
@@ -121,10 +148,10 @@ export const useBookStore = create<BookStore>()(
         }));
       },
 
-      uploadBook: async (file, metadata) => {
+      uploadBook: async (file, metadata, onProgress) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await booksApi.upload(file, metadata);
+          const response = await booksApi.upload(file, metadata, onProgress);
           if (response.success && response.data) {
             const book = mapApiBook(response.data);
             set((state) => ({ books: [book, ...state.books], isLoading: false }));

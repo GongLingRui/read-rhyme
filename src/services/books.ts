@@ -64,7 +64,11 @@ export const booksApi = {
   },
 
   // Upload book
-  upload: async (file: File, metadata?: Partial<BookCreate>): Promise<ApiResponse<Book>> => {
+  upload: async (
+    file: File,
+    metadata?: Partial<BookCreate>,
+    onProgress?: (progress: number) => void
+  ): Promise<ApiResponse<Book>> => {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -78,7 +82,7 @@ export const booksApi = {
       formData.append("cover", metadata.cover);
     }
 
-    return apiClient.upload("/books/upload", formData);
+    return apiClient.upload("/books/upload", formData, onProgress);
   },
 
   // Get book content

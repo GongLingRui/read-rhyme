@@ -36,20 +36,25 @@ export interface Note {
 }
 
 export const highlightsApi = {
+  // Get all highlights across all books
+  getAll: async (): Promise<ApiResponse<Highlight[]>> => {
+    return apiClient.get("/highlights");
+  },
+
   // Get highlights for a book
-  list: async (
+  getBookHighlights: async (
     bookId: string,
     params: {
       color?: string;
       chapter?: string;
     } = {}
   ): Promise<ApiResponse<Highlight[]>> => {
-    return apiClient.get(`/books/${bookId}`, params);
+    return apiClient.get(`/highlights/${bookId}`, params);
   },
 
   // Create highlight
   create: async (bookId: string, data: HighlightCreate): Promise<ApiResponse<Highlight>> => {
-    return apiClient.post(`/books/${bookId}`, data);
+    return apiClient.post(`/highlights/${bookId}`, data);
   },
 
   // Update highlight
@@ -57,26 +62,26 @@ export const highlightsApi = {
     highlightId: string,
     data: { color?: "yellow" | "green" | "blue" | "pink" }
   ): Promise<ApiResponse<Highlight>> => {
-    return apiClient.patch(`/highlights/${highlightId}`, data);
+    return apiClient.patch(`/highlights/highlights/${highlightId}`, data);
   },
 
   // Delete highlight
   delete: async (highlightId: string): Promise<ApiResponse<{ deleted: boolean }>> => {
-    return apiClient.delete(`/highlights/${highlightId}`);
+    return apiClient.delete(`/highlights/highlights/${highlightId}`);
   },
 
   // Set note for highlight
   setNote: async (highlightId: string, content: string): Promise<ApiResponse<Note>> => {
-    return apiClient.put(`/highlights/${highlightId}/note`, { content });
+    return apiClient.put(`/highlights/highlights/${highlightId}/note`, { content });
   },
 
   // Delete note
   deleteNote: async (highlightId: string): Promise<ApiResponse<{ deleted: boolean }>> => {
-    return apiClient.delete(`/highlights/${highlightId}/note`);
+    return apiClient.delete(`/highlights/highlights/${highlightId}/note`);
   },
 
   // Export notes
   exportNotes: async (bookId: string, format: "json" | "markdown" | "csv" = "markdown"): Promise<void> => {
-    return apiClient.download(`/books/${bookId}/notes/export?format=${format}`);
+    return apiClient.download(`/highlights/${bookId}/notes/export?format=${format}`);
   },
 };

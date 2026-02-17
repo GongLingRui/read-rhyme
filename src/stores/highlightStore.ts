@@ -5,52 +5,73 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { highlightsApi, type Highlight as ApiHighlight } from "@/services";
 
-export type HighlightColor = "yellow" | "blue" | "green" | "pink";
-
-export interface SavedHighlight {
+export interface Highlight {
   id: string;
   userId: string;
   bookId: string;
-  chunkId?: string;
+  chunkId: string | null;
   text: string;
-  color: HighlightColor;
+  color: "yellow" | "green" | "blue" | "pink";
   startOffset: number;
   endOffset: number;
-  chapter?: string;
+  chapter: string | null;
   note?: {
     id: string;
     highlightId: string;
     content: string;
     createdAt: string;
     updatedAt: string;
-  };
+  } | null;
   createdAt: string;
+  bookTitle?: string;
+  bookAuthor?: string;
+  bookCoverUrl?: string;
 }
 
+/** 用于阅读页内联展示的划线（与 Highlight 同构） */
+export type SavedHighlight = Highlight;
+/** 划线颜色 */
+export type HighlightColor = Highlight["color"];
+
 interface HighlightStore {
-  highlights: SavedHighlight[];
+  highlights: Highlight[];
   isLoading: boolean;
   error: string | null;
 
   // Actions
-  fetchHighlights: (bookId: string) => Promise<void>;
-  addHighlight: (h: Omit<SavedHighlight, "id" | "userId" | "createdAt">) => Promise<void>;
-  updateNote: (id: string, note: string) => void;
-  removeHighlight: (id: string) => void;
-  getBookHighlights: (bookId: string) => SavedHighlight[];
+  fetchBookHighlights: (bookId: string) => Promise<void>;
+  fetchAllHighlights: () => Promise<void>;
+  addHighlight: (bookId: string, data: {
+    text: string;
+    color: "yellow" | "green" | "blue" | "pink";
+    start_offset: number;
+    end_offset: number;
+    chapter?: string;
+    chunk_id?: string;
+    note?: string;
+  }) => Promise<void>;
+  deleteHighlight: (highlightId: string) => Promise<void>;
 }
 
-const mapApiHighlight = (apiHighlight: ApiHighlight): SavedHighlight => ({
+const mapApiHighlight = (apiHighlight: ApiHighlight): Highlight => ({
   id: apiHighlight.id,
   userId: apiHighlight.user_id,
   bookId: apiHighlight.book_id,
   chunkId: apiHighlight.chunk_id,
   text: apiHighlight.text,
-  color: apiHighlight.color as HighlightColor,
+  color: apiHighlight.color,
   startOffset: apiHighlight.start_offset,
   endOffset: apiHighlight.end_offset,
   chapter: apiHighlight.chapter,
-  note: apiHighlight.note,
+  note: apiHighlight.note
+    ? {
+        id: apiHighlight.note.id,
+        highlightId: apiHighlight.note.highlight_id,
+        content: apiHighlight.note.content,
+        createdAt: apiHighlight.note.created_at,
+        updatedAt: apiHighlight.note.updated_at,
+      }
+    : null,
   createdAt: apiHighlight.created_at,
 });
 
@@ -61,73 +82,86 @@ export const useHighlightStore = create<HighlightStore>()(
       isLoading: false,
       error: null,
 
-      fetchHighlights: async (bookId) => {
+      fetchBookHighlights: async (bookId) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await highlightsApi.list(bookId);
+          const response = await highlightsApi.getBookHighlights(bookId);
           if (response.success && response.data) {
-            const highlights = response.data.map(mapApiHighlight);
+            const highlights = response.data.map((h: any) => ({
+              ...mapApiHighlight(h),
+              bookTitle: h.book?.title,
+              bookAuthor: h.book?.author,
+              bookCoverUrl: h.book?.cover_url,
+            }));
             set({ highlights, isLoading: false });
           }
         } catch (error: any) {
           set({
-            error: error.message || "获取高亮失败",
+            error: error.message || "获取划线列表失败",
             isLoading: false,
           });
         }
       },
 
-      addHighlight: async (data) => {
+      fetchAllHighlights: async () => {
+        set({ isLoading: true, error: null });
         try {
-          const response = await highlightsApi.create(data.bookId, {
-            text: data.text,
-            color: data.color,
-            start_offset: data.startOffset,
-            end_offset: data.endOffset,
-            chapter: data.chapter,
-            chunk_id: data.chunkId,
-            note: data.note?.content,
-          });
+          const response = await highlightsApi.getAll();
           if (response.success && response.data) {
-            const newHighlight = mapApiHighlight(response.data);
-            set((state) => ({ highlights: [...state.highlights, newHighlight] }));
+            const highlights = response.data.map((h: any) => ({
+              ...mapApiHighlight(h),
+              bookTitle: h.book?.title,
+              bookAuthor: h.book?.author,
+              bookCoverUrl: h.book?.cover_url,
+            }));
+            set({ highlights, isLoading: false });
           }
         } catch (error: any) {
-          set({ error: error.message || "添加高亮失败" });
-          throw error;
+          set({
+            error: error.message || "获取划线列表失败",
+            isLoading: false,
+          });
         }
       },
 
-      updateNote: async (id, note) => {
+      addHighlight: async (bookId, data) => {
+        set({ isLoading: true, error: null });
         try {
-          const response = await highlightsApi.setNote(id, note);
+          const response = await highlightsApi.create(bookId, data);
           if (response.success && response.data) {
+            const newHighlight = mapApiHighlight(response.data);
             set((state) => ({
-              highlights: state.highlights.map((h) =>
-                h.id === id ? { ...h, note: response.data } : h
-              ),
+              highlights: [...state.highlights, newHighlight],
+              isLoading: false,
             }));
           }
         } catch (error: any) {
-          set({ error: error.message || "更新笔记失败" });
+          set({
+            error: error.message || "添加划线失败",
+            isLoading: false,
+          });
           throw error;
         }
       },
 
-      removeHighlight: async (id) => {
+      deleteHighlight: async (highlightId) => {
+        set({ isLoading: true, error: null });
         try {
-          await highlightsApi.delete(id);
-          set((state) => ({
-            highlights: state.highlights.filter((h) => h.id !== id),
-          }));
+          const response = await highlightsApi.delete(highlightId);
+          if (response.success) {
+            set((state) => ({
+              highlights: state.highlights.filter((h) => h.id !== highlightId),
+              isLoading: false,
+            }));
+          }
         } catch (error: any) {
-          set({ error: error.message || "删除高亮失败" });
+          set({
+            error: error.message || "删除划线失败",
+            isLoading: false,
+          });
           throw error;
         }
       },
-
-      getBookHighlights: (bookId) =>
-        get().highlights.filter((h) => h.bookId === bookId),
     }),
     {
       name: "highlight-storage",

@@ -71,7 +71,7 @@ export const audioApi = {
 
   // Regenerate chunk
   regenerateChunk: async (projectId: string, chunkId: string): Promise<ApiResponse<any>> => {
-    return apiClient.post(`/projects/${projectId}/chunks/${chunkId}/regenerate`);
+    return apiClient.post(`/projects/${projectId}/chunks/${chunkId}/retry`);
   },
 
   // Get chunks progress
