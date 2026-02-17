@@ -1,8 +1,14 @@
 # Read-Rhyme Frontend
 
+
 <div align="center">
 
 AI-powered audiobook generation platform frontend application.
+
+## AI有声书后端
+
+https://github.com/GongLingRui/read-backend.git
+
 
 ![React](https://img.shields.io/badge/React-18+-cyan)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue)
